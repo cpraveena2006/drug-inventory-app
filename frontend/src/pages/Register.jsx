@@ -30,7 +30,6 @@ const Register = () => {
         <label>Role</label>
         <select name="role" value={form.role} onChange={handleChange}>
           <option value="pharmacist">Pharmacist</option>
-          <option value="admin">Admin</option>
           <option value="supplier">Supplier</option>
         </select>
         <button type="submit" disabled={loading}>

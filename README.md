@@ -65,6 +65,10 @@ Seeded demo logins (after `npm run seed`):
 - `admin@example.com` / `password123` (admin)
 - `pharmacist@example.com` / `password123` (pharmacist)
 
+Public registration only allows Pharmacist and Supplier accounts. Do not run the
+demo seed script against a public production database; it creates accounts with
+known demo passwords.
+
 ### 2. Frontend
 
 ```bash

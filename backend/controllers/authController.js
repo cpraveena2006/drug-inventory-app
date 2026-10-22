@@ -15,7 +15,7 @@ export const register = async (req, res) => {
       name,
       email,
       password,
-      role: ["admin", "pharmacist", "supplier"].includes(role) ? role : "pharmacist",
+      role: role === "supplier" ? "supplier" : "pharmacist",
     });
     const token = generateToken(user._id);
     res.status(201).json({ user: user.toSafeObject(), token });
