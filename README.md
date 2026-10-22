@@ -106,11 +106,12 @@ Open http://localhost:5173 and log in.
   it with sellable stock, and suggests a reorder amount allowing for a 7-day
   supplier lead time. It is a planning estimate, not a stockout guarantee.
 - **Safe sample data**: `npm run seed:sample` is additive and repeatable; it
-  adds inventory, expiry/stock alerts, incident examples, unavailable-drug
-  requests with supplier availability replies, and 30-day dispatch history
-  without clearing existing records. The original `npm run seed` command clears
-  existing users, suppliers, drugs, batches, orders, and audit logs before
-  rebuilding the base demo dataset.
+  requires an existing active pharmacist or admin, then adds inventory,
+  expiry/stock alerts, incident examples, unavailable-drug requests with
+  supplier availability replies, and 30-day dispatch history without clearing
+  existing records. The original `npm run seed` command clears existing users,
+  suppliers, drugs, batches, orders, and audit logs before rebuilding the base
+  demo dataset.
 - **Batch uniqueness**: `{ drug, batchNumber }` is a compound unique index —
   a supplier's batch number is unique per drug, not globally.
 - **Role-based access**: `admin` can delete records; `admin`/`pharmacist` can

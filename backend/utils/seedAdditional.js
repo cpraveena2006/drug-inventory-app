@@ -37,14 +37,12 @@ const splitQuantity = (quantity, part, totalParts) => {
 const run = async () => {
   await connectDB();
 
-  let user = await User.findOne({ email: "admin@example.com" });
+  const user = await User.findOne({
+    role: { $in: ["admin", "pharmacist"] },
+    isActive: true,
+  });
   if (!user) {
-    user = await User.create({
-      name: "Admin User",
-      email: "admin@example.com",
-      password: "password123",
-      role: "admin",
-    });
+    throw new Error("Create an active pharmacist account before adding sample data.");
   }
 
   const suppliers = await Promise.all([
