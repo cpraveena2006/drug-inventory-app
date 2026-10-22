@@ -28,11 +28,11 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  const register = useCallback(async (name, email, password, role) => {
+  const register = useCallback(async (name, email, password) => {
     setLoading(true);
     setError("");
     try {
-      const { data } = await api.post("/auth/register", { name, email, password, role });
+      const { data } = await api.post("/auth/register", { name, email, password });
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
       setUser(data.user);

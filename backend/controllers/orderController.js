@@ -1,12 +1,16 @@
 import Order from "../models/Order.js";
 import Batch from "../models/Batch.js";
 import Drug from "../models/Drug.js";
+import Supplier from "../models/Supplier.js";
+import mongoose from "mongoose";
 import logAction from "../utils/logAction.js";
+import { createDispatch } from "../services/dispatchService.js";
+import { paginationSummary, parsePagination } from "../utils/pagination.js";
 
 // Create a purchase order (drugs ordered FROM a supplier). No stock effect until delivered + received as a batch.
 export const createPurchaseOrder = async (req, res) => {
   try {
-    const { supplier, items, notes } = req.body;
+    const { supplier, items, notes, expectedDeliveryDate } = req.body;
     if (!supplier || !items?.length) {
       return res.status(400).json({ message: "Supplier and at least one item are required" });
     }
@@ -15,6 +19,7 @@ export const createPurchaseOrder = async (req, res) => {
       supplier,
       items,
       notes,
+      expectedDeliveryDate,
       createdBy: req.user._id,
     });
     await logAction({
@@ -38,69 +43,18 @@ export const createPurchaseOrder = async (req, res) => {
 export const createDispatchOrder = async (req, res) => {
   try {
     const { buyerName, items, notes } = req.body;
-    if (!buyerName || !items?.length) {
-      return res.status(400).json({ message: "Buyer name and at least one item are required" });
-    }
-
-    const allocatedItems = [];
-
-    for (const item of items) {
-      let remaining = item.quantity;
-      const batches = await Batch.find({
-        drug: item.drug,
-        quantityInStock: { $gt: 0 },
-        status: "active",
-        expiryDate: { $gt: new Date() },
-      }).sort({ expiryDate: 1 }); // earliest expiry first
-
-      const totalAvailable = batches.reduce((sum, b) => sum + b.quantityInStock, 0);
-      if (totalAvailable < item.quantity) {
-        const drug = await Drug.findById(item.drug);
-        return res.status(400).json({
-          message: `Insufficient stock for ${drug?.name || "drug"}. Available: ${totalAvailable}, requested: ${item.quantity}`,
-        });
-      }
-
-      for (const batch of batches) {
-        if (remaining <= 0) break;
-        const take = Math.min(batch.quantityInStock, remaining);
-        batch.quantityInStock -= take;
-        if (batch.quantityInStock === 0) batch.status = "depleted";
-        await batch.save();
-        allocatedItems.push({
-          drug: item.drug,
-          batch: batch._id,
-          quantity: take,
-          unitPrice: item.unitPrice,
-        });
-        remaining -= take;
-      }
-    }
-
-    const order = await Order.create({
-      orderType: "dispatch",
-      buyerName,
-      items: allocatedItems,
-      notes,
-      status: "approved",
-      createdBy: req.user._id,
-    });
-
-    await logAction({
-      userId: req.user._id,
-      action: "STOCK_DISPATCHED",
-      entityType: "Order",
-      entityId: order._id,
-      details: { buyerName },
-    });
+    const order = await createDispatch({ buyerName, items, notes, userId: req.user._id });
 
     const populated = await order.populate([
       { path: "items.drug", select: "name unit" },
       { path: "items.batch", select: "batchNumber expiryDate" },
     ]);
-    res.status(201).json(populated);
+    return res.status(201).json(populated);
   } catch (err) {
-    res.status(400).json({ message: "Failed to create dispatch order", error: err.message });
+    return res.status(err.statusCode || 400).json({
+      message: err.message || "Failed to create dispatch order",
+      code: err.code || "DISPATCH_FAILED",
+    });
   }
 };
 
@@ -130,12 +84,16 @@ export const receivePurchaseOrder = async (req, res) => {
         expiryDate: detail.expiryDate,
         quantityReceived: item.quantity,
         quantityInStock: item.quantity,
+        receivedDate: new Date(),
+        purchasePrice: item.unitPrice,
+        purchaseOrder: order._id,
         warehouseLocation: detail.warehouseLocation || "Main Warehouse",
       });
       createdBatches.push(batch);
     }
 
     order.status = "delivered";
+    order.receivedAt = new Date();
     await order.save();
 
     await logAction({
@@ -179,16 +137,53 @@ export const updateOrderStatus = async (req, res) => {
 
 export const getOrders = async (req, res) => {
   try {
-    const { orderType, status } = req.query;
-    const filter = {};
+    const { orderType, status, search } = req.query;
+    const pagination = parsePagination(req.query);
+    const baseFilter = {};
+    if (req.user.role === "supplier") baseFilter.supplier = req.user.supplier;
+    if (search?.trim()) {
+      const escapedSearch = search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const [drugIds, supplierIds] = await Promise.all([
+        Drug.find({ name: { $regex: escapedSearch, $options: "i" } }).distinct("_id"),
+        Supplier.find({ name: { $regex: escapedSearch, $options: "i" } }).distinct("_id"),
+      ]);
+      baseFilter.$or = [
+        { buyerName: { $regex: escapedSearch, $options: "i" } },
+        { notes: { $regex: escapedSearch, $options: "i" } },
+        { orderType: { $regex: escapedSearch, $options: "i" } },
+        { status: { $regex: escapedSearch, $options: "i" } },
+        { "items.drug": { $in: drugIds } },
+        { supplier: { $in: supplierIds } },
+      ];
+      if (mongoose.Types.ObjectId.isValid(search)) {
+        baseFilter.$or.push({ _id: new mongoose.Types.ObjectId(search) });
+      }
+    }
+    const filter = { ...baseFilter };
     if (orderType) filter.orderType = orderType;
     if (status) filter.status = status;
-    const orders = await Order.find(filter)
+    let query = Order.find(filter)
       .populate("supplier", "name")
       .populate("items.drug", "name unit")
       .populate("createdBy", "name")
       .sort({ createdAt: -1 });
-    res.json(orders);
+    if (pagination.requested) query = query.skip(pagination.skip).limit(pagination.limit);
+    const [orders, total, counts] = await Promise.all([
+      query,
+      pagination.requested ? Order.countDocuments(filter) : Promise.resolve(null),
+      pagination.requested ? Promise.all([
+        Order.countDocuments({ ...baseFilter, orderType: "purchase" }),
+        Order.countDocuments({ ...baseFilter, orderType: "dispatch" }),
+        Order.countDocuments(baseFilter),
+      ]) : Promise.resolve(null),
+    ]);
+    res.json(pagination.requested
+      ? {
+        items: orders,
+        pagination: paginationSummary(pagination.page, pagination.limit, total),
+        counts: { all: counts[2], purchase: counts[0], dispatch: counts[1] },
+      }
+      : orders);
   } catch (err) {
     res.status(500).json({ message: "Failed to fetch orders", error: err.message });
   }
@@ -196,7 +191,10 @@ export const getOrders = async (req, res) => {
 
 export const getOrderById = async (req, res) => {
   try {
-    const order = await Order.findById(req.params.id)
+    const order = await Order.findOne({
+      _id: req.params.id,
+      ...(req.user.role === "supplier" ? { supplier: req.user.supplier } : {}),
+    })
       .populate("supplier")
       .populate("items.drug")
       .populate("items.batch")

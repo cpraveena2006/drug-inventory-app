@@ -9,6 +9,9 @@ const supplierSchema = new mongoose.Schema(
     address: { type: String, trim: true },
     leadTimeDays: { type: Number, default: 7 },
     isActive: { type: Boolean, default: true },
+    isDeleted: { type: Boolean, default: false, index: true },
+    deletedAt: Date,
+    deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   },
   { timestamps: true }
 );

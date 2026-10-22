@@ -10,12 +10,18 @@ export const protect = async (req, res, next) => {
     const token = authHeader.split(" ")[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findById(decoded.id).select("-password");
-    if (!user) {
+    if (!user || !user.isActive) {
       return res.status(401).json({ message: "User no longer exists" });
+    }
+    if (user.role === "supplier" && !user.supplier) {
+      return res.status(403).json({
+        message: "Supplier account is not linked to a supplier record",
+        code: "SUPPLIER_NOT_LINKED",
+      });
     }
     req.user = user;
     next();
-  } catch (err) {
+  } catch {
     return res.status(401).json({ message: "Not authorized, invalid or expired token" });
   }
 };

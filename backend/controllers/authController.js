@@ -3,7 +3,7 @@ import generateToken from "../utils/generateToken.js";
 
 export const register = async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password } = req.body;
     if (!name || !email || !password) {
       return res.status(400).json({ message: "Name, email and password are required" });
     }
@@ -15,7 +15,7 @@ export const register = async (req, res) => {
       name,
       email,
       password,
-      role: role === "supplier" ? "supplier" : "pharmacist",
+      role: "pharmacist",
     });
     const token = generateToken(user._id);
     res.status(201).json({ user: user.toSafeObject(), token });
@@ -31,7 +31,7 @@ export const login = async (req, res) => {
       return res.status(400).json({ message: "Email and password are required" });
     }
     const user = await User.findOne({ email });
-    if (!user || !(await user.comparePassword(password))) {
+    if (!user || !user.isActive || !(await user.comparePassword(password))) {
       return res.status(401).json({ message: "Invalid email or password" });
     }
     const token = generateToken(user._id);

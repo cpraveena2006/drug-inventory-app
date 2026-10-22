@@ -11,6 +11,12 @@ const userSchema = new mongoose.Schema(
       enum: ["admin", "pharmacist", "supplier"],
       default: "pharmacist",
     },
+    supplier: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Supplier",
+      required: function supplierRequired() { return this.role === "supplier"; },
+    },
+    isActive: { type: Boolean, default: true },
   },
   { timestamps: true }
 );
@@ -32,6 +38,8 @@ userSchema.methods.toSafeObject = function () {
     name: this.name,
     email: this.email,
     role: this.role,
+    supplier: this.supplier,
+    isActive: this.isActive,
     createdAt: this.createdAt,
   };
 };

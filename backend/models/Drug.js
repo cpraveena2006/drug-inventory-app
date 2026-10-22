@@ -11,6 +11,10 @@ const drugSchema = new mongoose.Schema(
     unitPrice: { type: Number, required: true, min: 0 },
     reorderThreshold: { type: Number, default: 50 }, // low-stock alert level
     requiresPrescription: { type: Boolean, default: false },
+    barcode: { type: String, trim: true, sparse: true },
+    isDeleted: { type: Boolean, default: false, index: true },
+    deletedAt: Date,
+    deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   },
   { timestamps: true }
 );

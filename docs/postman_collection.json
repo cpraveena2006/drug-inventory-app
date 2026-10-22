@@ -1,0 +1,39 @@
+{
+  "info": {
+    "name": "Drug Inventory & Supply Chain API",
+    "description": "Core auth, inventory, incident, demand, and supplier portal requests.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000/api" },
+    { "key": "token", "value": "" },
+    { "key": "drugId", "value": "" },
+    { "key": "batchId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        { "name": "Register pharmacist", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"name\":\"Demo Pharmacist\",\"email\":\"pharmacist@example.test\",\"password\":\"password123\"}" }, "url": "{{baseUrl}}/auth/register" } },
+        { "name": "Login", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"email\":\"pharmacist@example.test\",\"password\":\"password123\"}" }, "url": "{{baseUrl}}/auth/login" } }
+      ]
+    },
+    {
+      "name": "Inventory",
+      "item": [
+        { "name": "List drugs", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }], "url": "{{baseUrl}}/drugs" } },
+        { "name": "Drug insights", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }], "url": "{{baseUrl}}/drugs/{{drugId}}/insights" } },
+        { "name": "Batch details", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }], "url": "{{baseUrl}}/batches/{{batchId}}/details" } },
+        { "name": "Report damage", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"quantity\":1,\"reason\":\"Packaging damaged during inspection\",\"tags\":[\"packaging damaged\"]}" }, "url": "{{baseUrl}}/batches/{{batchId}}/report-damage" } }
+      ]
+    },
+    {
+      "name": "Incidents and demand",
+      "item": [
+        { "name": "List incidents", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }], "url": "{{baseUrl}}/incidents?page=1&limit=25" } },
+        { "name": "Top demand", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }], "url": "{{baseUrl}}/requests/analytics/top-demand?days=30" } },
+        { "name": "Run expiry check", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }], "url": "{{baseUrl}}/jobs/run-expiry-check" } }
+      ]
+    }
+  ]
+}

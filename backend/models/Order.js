@@ -28,6 +28,8 @@ const orderSchema = new mongoose.Schema(
     totalAmount: { type: Number, default: 0 },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     notes: { type: String, trim: true },
+    expectedDeliveryDate: Date,
+    receivedAt: Date,
   },
   { timestamps: true }
 );
